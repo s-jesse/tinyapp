@@ -2,7 +2,18 @@ const express = require("express");
 const app = express();
 const PORT = 8080;
 
-function generateRandomString() {}
+const generateRandomString = function(length = 6) {
+  let randomStr = [];
+  const char = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+  for (let i = 0; i < length; i++) {
+    let charIndex = Math.floor(Math.random() * char.length);
+    randomStr.push(char.charAt(charIndex));
+
+  }
+
+  randomStr = randomStr.join("");
+  return randomStr
+}
 
 app.set("view engine", "ejs");
 app.use(express.urlencoded({ extended: true }));
@@ -20,19 +31,43 @@ app.get("/urls", (req, res) => {
   const templateVars = { urls: urlDatabase };
   res.render("urls_index", templateVars);
 });
-
+// if (post === ???)
 app.post("/urls", (req, res) => {
+  //const urlDatabase = { urls: urlDatabase };
   console.log(req.body); // Log the POST request body to the console
-  res.send("Ok"); // Respond with 'Ok' (we will replace this)
+  let shortURL = generateRandomString();
+  let longURL = req.body.longURL;
+  urlDatabase[shortURL] = longURL;
+
+  //res.send("Ok"); // Respond with 'Ok' (we will replace this)
+  //res.render("urls_new", templateVars);
+  res.redirect(`/urls/${shortURL}`);
 });
+
+app.post("/urls/:id/delete", (req, res) => {
+  //const urlDatabase = { urls: urlDatabase };
+  console.log(req.body); // Log the POST request body to the console
+  //const templateVars = { id: req.params.id, longURL: urlDatabase[req.params.id]};
+  //if ?
+  delete urlDatabase[req.params.id];
+  res.redirect(`/urls`) 
+});
+
 
 app.get("/urls/new", (req, res) => {
   res.render("urls_new");
 });
 
+
+
 app.get("/urls/:id", (req, res) => {
   const templateVars = { id: req.params.id, longURL: urlDatabase[req.params.id]  /* What goes here? */ };
   res.render("urls_show", templateVars);
+});
+
+app.get("/u/:id", (req, res) => {
+  const longURL = urlDatabase[req.params.id]; // using same reference as above and then redirecting
+  res.redirect(longURL);
 });
 
 app.get("/hello", (req, res) => {
