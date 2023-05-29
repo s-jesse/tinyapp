@@ -1,6 +1,9 @@
 const express = require("express");
+const morgan = require("morgan");
 const app = express();
 const PORT = 8080;
+
+app.use(morgan("dev"));
 
 const generateRandomString = function(length = 6) {
   let randomStr = [];
@@ -31,7 +34,7 @@ app.get("/urls", (req, res) => {
   const templateVars = { urls: urlDatabase };
   res.render("urls_index", templateVars);
 });
-// if (post === ???)
+
 app.post("/urls", (req, res) => {
   //const urlDatabase = { urls: urlDatabase };
   console.log(req.body); // Log the POST request body to the console
@@ -42,6 +45,20 @@ app.post("/urls", (req, res) => {
   //res.send("Ok"); // Respond with 'Ok' (we will replace this)
   //res.render("urls_new", templateVars);
   res.redirect(`/urls/${shortURL}`);
+});
+
+app.post("/urls/:id", (req, res) => {
+  //const urlDatabase = { urls: urlDatabase };
+
+  console.log(req.body); // Log the POST request body to the console
+  //let id = req.params.id
+  //let longURL = urlDatabase[req.params.id]
+  let longURL = req.body.longURL;
+  urlDatabase[req.params.id] = longURL; // review why this worked and if placeholder was correct!!!
+  // how does the url update to changed longURL and redirects to actuall site!
+  //urlDatabase[req.params.id].longURL = req.body.longURL;
+  
+  res.redirect(`/urls`) 
 });
 
 app.post("/urls/:id/delete", (req, res) => {

@@ -21,6 +21,7 @@
           Short URL ID: <a href="/u/<%= id %>"><%= id %></a>
         </p>
       </div>
+      <td><form method="POST" action="/urls/<%= id %>">New URL:<input type = "text" name="longURL" placeholder="<%= longURL %>"><button type="submit">Submit</button></form></td>
       <div class="card-footer text-muted"></div>
     </div>
     <!-- Bootstrap JS -->
