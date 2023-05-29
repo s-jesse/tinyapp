@@ -41,9 +41,13 @@ app.get("/urls", (req, res) => {
 app.post("/login", (req, res) => {
   res.cookie("username", req.body);
   res.redirect("/urls");
-  //res.redirect(`/login`) 
 });
 
+app.post("/logout", (req, res) => {
+  res.clearCookie('username') // had to change if statement to just username???
+  res.redirect("/urls");
+});
+//res.clearCookie('name', { path: '/admin' })
 
 app.post("/urls", (req, res) => {
   //const urlDatabase = { urls: urlDatabase };
