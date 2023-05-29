@@ -1,8 +1,10 @@
 const express = require("express");
 const morgan = require("morgan");
+const cookieParser = require('cookie-parser')
 const app = express();
 const PORT = 8080;
 
+app.use(cookieParser())
 app.use(morgan("dev"));
 
 const generateRandomString = function(length = 6) {
@@ -31,9 +33,17 @@ app.get("/", (req, res) => {
 });
 
 app.get("/urls", (req, res) => {
-  const templateVars = { urls: urlDatabase };
+  const templateVars = { username: req.cookies["username"], urls: urlDatabase };
+  //why did username["username"] work!!!???
   res.render("urls_index", templateVars);
 });
+
+app.post("/login", (req, res) => {
+  res.cookie("username", req.body);
+  res.redirect("/urls");
+  //res.redirect(`/login`) 
+});
+
 
 app.post("/urls", (req, res) => {
   //const urlDatabase = { urls: urlDatabase };
@@ -72,13 +82,15 @@ app.post("/urls/:id/delete", (req, res) => {
 
 
 app.get("/urls/new", (req, res) => {
-  res.render("urls_new");
+  const templateVars = { username: req.cookies["username"]};
+
+  res.render("urls_new", templateVars);
 });
 
 
 
 app.get("/urls/:id", (req, res) => {
-  const templateVars = { id: req.params.id, longURL: urlDatabase[req.params.id]  /* What goes here? */ };
+  const templateVars = { username: req.cookies["username"], id: req.params.id, longURL: urlDatabase[req.params.id],   /* What goes here? */ };
   res.render("urls_show", templateVars);
 });
 
