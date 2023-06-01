@@ -7,6 +7,19 @@ const PORT = 8080;
 app.use(cookieParser())
 app.use(morgan("dev"));
 
+const users = {
+  abc: {
+    id: "abc",
+    email: "a@a.com",
+    password: "123",
+  },
+  def: {
+    id: "def",
+    email: "b@b.com",
+    password: "456",
+  },
+};
+
 const generateRandomString = function(length = 6) {
   let randomStr = [];
   const char = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
@@ -32,19 +45,109 @@ app.get("/", (req, res) => {
   res.send("Hello!");
 });
 
+
+
+app.get("/register", (req, res) => {
+
+  res.render("register");
+});
+
+app.post("/register", (req, res) => {
+  const email = req.body.email;
+  const password = req.body.password;
+
+  // if email and/or password not provided
+
+  if (!email || !password) {
+    return res.status(400).send("please provide an email and password")
+  }
+
+  let userFound;
+// REMEMBER IF WE FIND A USERNAME IT MEANS IT ALREADY EXISTS WHICH WOULD INDICATE A DOUBLE!!
+// should i be storing template as users or user
+// why user not users??!!
+
+  for (const userId in users) {
+    const user = users[userId];
+    if (user.email === email) {
+      userFound = user;
+    }
+  }
+  // If we found user already registered
+  if (userFound) {
+    return res.status(400).send("that email is already registered")
+  }
+  // if we did not find a user
+
+  const id = Math.random().toString(36).substring(2, 5);
+
+  const newUser = {
+    id: id,
+    email: email,
+    password: password
+  };
+
+  // update users object
+  users[id] = newUser;
+
+
+  //res.cookie("user_id", id)
+
+  console.log("users:", users);
+  console.log("newUser:", newUser)
+  console.log("users[id]:", users[id])
+
+  res.redirect("/login");
+  // id random generator 
+  // add in all 3 as keys and add into users object - random id will also be this object key
+
+});
+
 app.get("/urls", (req, res) => {
-  const templateVars = { username: req.cookies["username"], urls: urlDatabase };
+  const user = users[req.cookies["user_id"]]
+  // before was just a cookie now reads users at cookies id. cookies are key values
+  const templateVars = { user, urls: urlDatabase };
   //why did username["username"] work!!!???
+  // go over last part with referencing users object and changing header partial
   res.render("urls_index", templateVars);
 });
 
+app.get("/login", (req, res) => {
+
+  res.render("login");
+});
+
 app.post("/login", (req, res) => {
-  res.cookie("username", req.body);
-  res.redirect("/urls");
+  const email = req.body.email;
+  const password = req.body.password;
+
+  // if email and/or password not provided
+
+  if (!email || !password) {
+    return res.status(400).send("please provide an email and password")
+  }
+  
+  let userFound;
+
+  for (const userId in users) {
+    
+    const user = users[userId];
+
+    if (user.email === email && user.password === password ) {
+      userFound = user;
+    } 
+    if (userFound)
+    res.cookie("user_id", user.id)
+    res.redirect("/urls");
+  }   
+
+    return res.status(400).send("email and/or password incorrect")
+
 });
 
 app.post("/logout", (req, res) => {
-  res.clearCookie('username') // had to change if statement to just username???
+  res.clearCookie('user_id') // had to change if statement to just username???
+  console.log("users: ", users);
   res.redirect("/urls");
 });
 //res.clearCookie('name', { path: '/admin' })
@@ -84,9 +187,9 @@ app.post("/urls/:id/delete", (req, res) => {
   res.redirect(`/urls`) 
 });
 
-
 app.get("/urls/new", (req, res) => {
-  const templateVars = { username: req.cookies["username"]};
+  const user = users[req.cookies["user_id"]]
+  const templateVars = { user};
 
   res.render("urls_new", templateVars);
 });
@@ -94,7 +197,10 @@ app.get("/urls/new", (req, res) => {
 
 
 app.get("/urls/:id", (req, res) => {
-  const templateVars = { username: req.cookies["username"], id: req.params.id, longURL: urlDatabase[req.params.id],   /* What goes here? */ };
+  const user = users[req.cookies["user_id"]]
+  // otherwise can just add in user: req.cookies...
+
+  const templateVars = { user, id: req.params.id, longURL: urlDatabase[req.params.id],   /* What goes here? */ };
   res.render("urls_show", templateVars);
 });
 
