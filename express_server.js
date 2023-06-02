@@ -36,9 +36,20 @@ const generateRandomString = function(length = 6) {
 app.set("view engine", "ejs");
 app.use(express.urlencoded({ extended: true }));
 
+// const urlDatabase = {
+//   "b2xVn2": "http://www.lighthouselabs.ca",
+//   "9sm5xK": "http://www.google.com"
+// };
+
 const urlDatabase = {
-  "b2xVn2": "http://www.lighthouselabs.ca",
-  "9sm5xK": "http://www.google.com"
+  b6UTxQ: {
+    longURL: "https://www.tsn.ca",
+    userID: "aJ48lW",
+  },
+  i3BoGr: {
+    longURL: "https://www.google.ca",
+    userID: "aJ48lW",
+  },
 };
 
 app.get("/", (req, res) => {
@@ -48,8 +59,12 @@ app.get("/", (req, res) => {
 
 
 app.get("/register", (req, res) => {
-
-  res.render("register");
+  const user = users[req.cookies["user_id"]]
+  const templateVars = { user, urls: urlDatabase };
+  if (user) {
+    res.redirect('/urls');
+  }
+  res.render("register", templateVars);
 });
 
 app.post("/register", (req, res) => {
@@ -113,8 +128,12 @@ app.get("/urls", (req, res) => {
 });
 
 app.get("/login", (req, res) => {
-
-  res.render("login");
+  const user = users[req.cookies["user_id"]]
+  const templateVars = { user, urls: urlDatabase };
+  if (user) {
+    res.redirect('/urls');
+  }
+  res.render("login", templateVars);
 });
 
 app.post("/login", (req, res) => {
@@ -135,14 +154,13 @@ app.post("/login", (req, res) => {
 
     if (user.email === email && user.password === password ) {
       userFound = user;
+      res.cookie("user_id", user.id)
+      res.redirect("/urls");
     } 
-    if (userFound)
-    res.cookie("user_id", user.id)
-    res.redirect("/urls");
-  }   
-
+  }
+   if (!userFound) {
     return res.status(400).send("email and/or password incorrect")
-
+  } 
 });
 
 app.post("/logout", (req, res) => {
@@ -153,15 +171,34 @@ app.post("/logout", (req, res) => {
 //res.clearCookie('name', { path: '/admin' })
 
 app.post("/urls", (req, res) => {
-  //const urlDatabase = { urls: urlDatabase };
+  const user = users[req.cookies["user_id"]]
+  //const templateVars = { urls: urlDatabase };
+  if (!user) {
+    res.send('have to be registered and logged in to create short url');
+  }
   console.log(req.body); // Log the POST request body to the console
   let shortURL = generateRandomString();
-  let longURL = req.body.longURL;
-  urlDatabase[shortURL] = longURL;
+  let longUrl = req.body.longURL;
+  //urlDatabase[shortURL] = longURL;
+  //console.log("urlDatabase:", urlDatabase)
+  // const newId = {
+  //   longURL: longUrl,
+  //   userID: user.id, // why user.id - req.cookies with cookie name gives all key/value pairs?
+  // };
+
+  // // update users object
+  // urlDatabase[shortURL] = newId;
+  urlDatabase[shortURL] = {
+    longURL: longUrl,
+    userID: user.id
+  };
+
+
+  console.log("urlDatabase:", urlDatabase)
 
   //res.send("Ok"); // Respond with 'Ok' (we will replace this)
-  //res.render("urls_new", templateVars);
-  res.redirect(`/urls/${shortURL}`);
+  res.redirect(`/urls/${shortURL}`)
+  //res.render(templateVars);
 });
 
 app.post("/urls/:id", (req, res) => {
@@ -170,8 +207,8 @@ app.post("/urls/:id", (req, res) => {
   console.log(req.body); // Log the POST request body to the console
   //let id = req.params.id
   //let longURL = urlDatabase[req.params.id]
-  let longURL = req.body.longURL;
-  urlDatabase[req.params.id] = longURL; // review why this worked and if placeholder was correct!!!
+  let longUrl = req.body.longURL;
+  urlDatabase[req.params.id].longURL = longUrl; // review why this worked and if placeholder was correct!!!
   // how does the url update to changed longURL and redirects to actuall site!
   //urlDatabase[req.params.id].longURL = req.body.longURL;
   
@@ -189,7 +226,10 @@ app.post("/urls/:id/delete", (req, res) => {
 
 app.get("/urls/new", (req, res) => {
   const user = users[req.cookies["user_id"]]
-  const templateVars = { user};
+  const templateVars = { user, urls: urlDatabase };
+  if (!user) {
+    res.redirect('/login');
+  }
 
   res.render("urls_new", templateVars);
 });
@@ -199,14 +239,22 @@ app.get("/urls/new", (req, res) => {
 app.get("/urls/:id", (req, res) => {
   const user = users[req.cookies["user_id"]]
   // otherwise can just add in user: req.cookies...
-
-  const templateVars = { user, id: req.params.id, longURL: urlDatabase[req.params.id],   /* What goes here? */ };
+  if (!urlDatabase[req.params.id]) {
+    return res.status(404).send("id not found")
+    }
+  const templateVars = { user, id: req.params.id, longURL: urlDatabase[req.params.id].longURL,   /* What goes here? */ };
   res.render("urls_show", templateVars);
 });
 
 app.get("/u/:id", (req, res) => {
-  const longURL = urlDatabase[req.params.id]; // using same reference as above and then redirecting
+  // add falsey first otherwise it sends double http requests error
+  if (!urlDatabase[req.params.id]) {
+    return res.status(404).send("id not found")
+    }
+
+  const longURL = urlDatabase[req.params.id].longURL; // using same reference as above and then redirecting
   res.redirect(longURL);
+
 });
 
 app.get("/hello", (req, res) => {
