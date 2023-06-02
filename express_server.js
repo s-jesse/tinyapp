@@ -1,13 +1,23 @@
 const express = require("express");
 const morgan = require("morgan");
-const cookieParser = require('cookie-parser')
+//const cookieParser = require('cookie-parser')
+const cookieSession = require('cookie-session')
 const app = express();
 const PORT = 8080;
 const bcrypt = require("bcryptjs");
 //const password = "123"; // found in the req.body object
 //const hashedPassword = bcrypt.hashSync(password, 10);
 
-app.use(cookieParser())
+//app.use(cookieParser())
+app.use(cookieSession({
+  name: 'session',
+  keys: ["123"],/* secret keys */
+
+  // Cookie Options
+  maxAge: 24 * 60 * 60 * 1000 // 24 hours
+}))
+
+
 app.use(morgan("dev"));
 
 const users = {
@@ -62,7 +72,7 @@ app.get("/", (req, res) => {
 
 
 app.get("/register", (req, res) => {
-  const user = users[req.cookies["user_id"]]
+  const user = users[req.session.userid]
   const templateVars = { user, urls: urlDatabase };
   if (user) {
     res.redirect('/urls');
@@ -122,7 +132,7 @@ app.post("/register", (req, res) => {
 });
 
 app.get("/urls", (req, res) => {
-  const user = users[req.cookies["user_id"]]
+  const user = users[req.session.userid]
   // before was just a cookie now reads users at cookies id. cookies are key values
   const templateVars = { user, urls: urlDatabase };
   //why did username["username"] work!!!???
@@ -131,7 +141,7 @@ app.get("/urls", (req, res) => {
 });
 
 app.get("/login", (req, res) => {
-  const user = users[req.cookies["user_id"]]
+  const user = users[req.session.userid]
   const templateVars = { user, urls: urlDatabase };
   if (user) {
     res.redirect('/urls');
@@ -159,7 +169,8 @@ app.post("/login", (req, res) => {
 
     if (user.email === email && bcrypt.compareSync(password, hashedPassword) ) {
       userFound = user;
-      res.cookie("user_id", user.id)
+      // is this correct for res.cookie 
+      req.session.userid = userFound.id
       res.redirect("/urls");
     } 
   }
@@ -169,14 +180,14 @@ app.post("/login", (req, res) => {
 });
 
 app.post("/logout", (req, res) => {
-  res.clearCookie('user_id') // had to change if statement to just username???
+  req.session.userid = null // had to change if statement to just username???
   console.log("users: ", users);
   res.redirect("/urls");
 });
 //res.clearCookie('name', { path: '/admin' })
 
 app.post("/urls", (req, res) => {
-  const user = users[req.cookies["user_id"]]
+  const user = users[req.session.userid]
   //const templateVars = { urls: urlDatabase };
   if (!user) {
     res.send('have to be registered and logged in to create short url');
@@ -230,7 +241,7 @@ app.post("/urls/:id/delete", (req, res) => {
 });
 
 app.get("/urls/new", (req, res) => {
-  const user = users[req.cookies["user_id"]]
+  const user = users[req.session.userid]
   const templateVars = { user, urls: urlDatabase };
   if (!user) {
     res.redirect('/login');
@@ -242,7 +253,7 @@ app.get("/urls/new", (req, res) => {
 
 
 app.get("/urls/:id", (req, res) => {
-  const user = users[req.cookies["user_id"]]
+  const user = users[req.session.userid]
   // otherwise can just add in user: req.cookies...
   if (!urlDatabase[req.params.id]) {
     return res.status(404).send("id not found")
