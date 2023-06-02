@@ -3,6 +3,9 @@ const morgan = require("morgan");
 const cookieParser = require('cookie-parser')
 const app = express();
 const PORT = 8080;
+const bcrypt = require("bcryptjs");
+//const password = "123"; // found in the req.body object
+//const hashedPassword = bcrypt.hashSync(password, 10);
 
 app.use(cookieParser())
 app.use(morgan("dev"));
@@ -70,7 +73,7 @@ app.get("/register", (req, res) => {
 app.post("/register", (req, res) => {
   const email = req.body.email;
   const password = req.body.password;
-
+  const hashedPassword = bcrypt.hashSync(password, 10);
   // if email and/or password not provided
 
   if (!email || !password) {
@@ -99,7 +102,7 @@ app.post("/register", (req, res) => {
   const newUser = {
     id: id,
     email: email,
-    password: password
+    password: hashedPassword
   };
 
   // update users object
@@ -139,6 +142,8 @@ app.get("/login", (req, res) => {
 app.post("/login", (req, res) => {
   const email = req.body.email;
   const password = req.body.password;
+  const hashedPassword = bcrypt.hashSync(password, 10);
+
 
   // if email and/or password not provided
 
@@ -152,7 +157,7 @@ app.post("/login", (req, res) => {
     
     const user = users[userId];
 
-    if (user.email === email && user.password === password ) {
+    if (user.email === email && bcrypt.compareSync(password, hashedPassword) ) {
       userFound = user;
       res.cookie("user_id", user.id)
       res.redirect("/urls");
