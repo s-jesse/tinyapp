@@ -246,6 +246,21 @@ app.post("/logout", (req, res) => {
 });
 
 /////////////////////////////////////////////////////////////
+//                 "/URLS/NEW"  GET                        //
+/////////////////////////////////////////////////////////////
+
+app.get("/urls/new", (req, res) => {
+  const user = users[req.session.userid];
+  const templateVars = { user, urls: urlDatabase };
+  //must be logged in
+  if (!user) {
+    res.redirect('/login');
+  }
+
+  res.render("urls_new", templateVars);
+});
+
+/////////////////////////////////////////////////////////////
 //                 "URLS/:ID" GET & POST                   //
 /////////////////////////////////////////////////////////////
 
@@ -275,7 +290,7 @@ app.get("/urls/:id", (req, res) => {
 app.post("/urls/:id", (req, res) => {
   
   console.log(req.body); // Log the POST request body to the console
-
+  
   let longUrl = req.body.longURL;
   // updates new longUrl typed in and stores/updates same shortURl
   urlDatabase[req.params.id].longURL = longUrl;
@@ -321,20 +336,6 @@ app.post("/urls/:id/delete", (req, res) => {
   res.redirect(`/urls`);
 });
 
-/////////////////////////////////////////////////////////////
-//                 "/URLS/NEW"  GET                        //
-/////////////////////////////////////////////////////////////
-
-app.get("/urls/new", (req, res) => {
-  const user = users[req.session.userid];
-  const templateVars = { user, urls: urlDatabase };
-  //must be logged in
-  if (!user) {
-    res.redirect('/login');
-  }
-
-  res.render("urls_new", templateVars);
-});
 
 
 /////////////////////////////////////////////////////////////
