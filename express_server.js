@@ -1,5 +1,6 @@
 const express = require("express");
 const morgan = require("morgan");
+const getUserByEmail = require("./helpers")
 //const cookieParser = require('cookie-parser')
 const cookieSession = require('cookie-session')
 const app = express();
@@ -46,6 +47,15 @@ const generateRandomString = function(length = 6) {
   return randomStr
 }
 
+const urlsForUser = function(id, urls) {
+  let usersUrls = {};
+  for (let userUrlId in urls) {
+  if (id === urlDatabase[userUrlId].userID) {
+    usersUrls[userUrlId] = urlDatabase[userUrlId]
+}
+}
+return usersUrls
+}
 app.set("view engine", "ejs");
 app.use(express.urlencoded({ extended: true }));
 
@@ -84,24 +94,15 @@ app.post("/register", (req, res) => {
   const email = req.body.email;
   const password = req.body.password;
   const hashedPassword = bcrypt.hashSync(password, 10);
-  // if email and/or password not provided
 
+  const userFound = getUserByEmail(email, users );
+
+  // if email and/or password not provided
   if (!email || !password) {
     return res.status(400).send("please provide an email and password")
   }
 
-  let userFound;
-// REMEMBER IF WE FIND A USERNAME IT MEANS IT ALREADY EXISTS WHICH WOULD INDICATE A DOUBLE!!
-// should i be storing template as users or user
-// why user not users??!!
 
-  for (const userId in users) {
-    const user = users[userId];
-    if (user.email === email) {
-      userFound = user;
-    }
-  }
-  // If we found user already registered
   if (userFound) {
     return res.status(400).send("that email is already registered")
   }
@@ -133,8 +134,14 @@ app.post("/register", (req, res) => {
 
 app.get("/urls", (req, res) => {
   const user = users[req.session.userid]
+  //const usersURLS = urlsForUser(user.id, urlDatabase);
+  const templateVars = { user, urls: urlsForUser(req.session.userid, urlDatabase) };
+  if (!user) {
+    return res.status(400).send("please visit /login or /register first")
+  }
   // before was just a cookie now reads users at cookies id. cookies are key values
-  const templateVars = { user, urls: urlDatabase };
+  //const userFound = getUserByEmail();
+
   //why did username["username"] work!!!???
   // go over last part with referencing users object and changing header partial
   res.render("urls_index", templateVars);
@@ -152,37 +159,30 @@ app.get("/login", (req, res) => {
 app.post("/login", (req, res) => {
   const email = req.body.email;
   const password = req.body.password;
-  const hashedPassword = bcrypt.hashSync(password, 10);
-
+  const userFound = getUserByEmail(email, users);
+  //const hashedPassword = users[id].password
 
   // if email and/or password not provided
 
   if (!email || !password) {
-    return res.status(400).send("please provide an email and password")
+    return res.status(403).send("please provide an email and password")
   }
   
-  let userFound;
-
-  for (const userId in users) {
-    
-    const user = users[userId];
-
-    if (user.email === email && bcrypt.compareSync(password, hashedPassword) ) {
-      userFound = user;
+    if (userFound && bcrypt.compareSync(password, userFound.password)) {
+      // userFound = user;
       // is this correct for res.cookie 
-      req.session.userid = userFound.id
+      req.session.userid = userFound.id 
+      //req.session.userid = users.id
       res.redirect("/urls");
-    } 
-  }
-   if (!userFound) {
-    return res.status(400).send("email and/or password incorrect")
+    } else {
+    return res.status(403).send("email and/or password incorrect")
   } 
 });
 
 app.post("/logout", (req, res) => {
   req.session.userid = null // had to change if statement to just username???
   console.log("users: ", users);
-  res.redirect("/urls");
+  res.redirect("/login");
 });
 //res.clearCookie('name', { path: '/admin' })
 
@@ -231,7 +231,34 @@ app.post("/urls/:id", (req, res) => {
   res.redirect(`/urls`) 
 });
 
+app.get("/urls/:id/delete", (req, res) => {
+  const user = users[req.session.userid]
+
+  if (!user) {
+    return res.status(404).send("must be logged in to access delete option")
+  }
+  
+  if (urlDatabase[req.params.id].userID !== user.id) {
+    return res.status(404).send("incorrect user accessing url")
+    }
+  //const urlDatabase = { urls: urlDatabase };
+  console.log(req.body); // Log the POST request body to the console
+  //const templateVars = { id: req.params.id, longURL: urlDatabase[req.params.id]};
+  //if ?
+  delete urlDatabase[req.params.id];
+  res.redirect(`/urls`) 
+});
+
 app.post("/urls/:id/delete", (req, res) => {
+  const user = users[req.session.userid]
+
+  if (!user) {
+    return res.status(404).send("must be logged in to access delete option")
+  }
+  
+  if (urlDatabase[req.params.id].userID !== user.id) {
+    return res.status(404).send("incorrect user accessing url")
+    }
   //const urlDatabase = { urls: urlDatabase };
   console.log(req.body); // Log the POST request body to the console
   //const templateVars = { id: req.params.id, longURL: urlDatabase[req.params.id]};
@@ -255,18 +282,29 @@ app.get("/urls/new", (req, res) => {
 app.get("/urls/:id", (req, res) => {
   const user = users[req.session.userid]
   // otherwise can just add in user: req.cookies...
+  if (!user) {
+    return res.status(404).send("must be logged in to access url")
+
+  }
   if (!urlDatabase[req.params.id]) {
     return res.status(404).send("id not found")
     }
+    if (urlDatabase[req.params.id].userID !== user.id) {
+      return res.status(404).send("incorrect user accessing url")
+      }
   const templateVars = { user, id: req.params.id, longURL: urlDatabase[req.params.id].longURL,   /* What goes here? */ };
   res.render("urls_show", templateVars);
 });
 
 app.get("/u/:id", (req, res) => {
+  const user = users[req.session.userid]
   // add falsey first otherwise it sends double http requests error
   if (!urlDatabase[req.params.id]) {
     return res.status(404).send("id not found")
     }
+ if (!user) {
+      return res.status(404).send("must be logged in to access this area")
+      }
 
   const longURL = urlDatabase[req.params.id].longURL; // using same reference as above and then redirecting
   res.redirect(longURL);
