@@ -4,14 +4,13 @@
 
 const express = require("express");
 const morgan = require("morgan");
-const getUserByEmail = require("./helpers");
-//const cookieParser = require('cookie-parser')
+const {getUserByEmail, generateRandomString, urlsForUser} = require("./helpers");
+const {users, urlDatabase} = require("./databases");
 const cookieSession = require('cookie-session');
 const app = express();
 const PORT = 8080;
 const bcrypt = require("bcryptjs");
-//const password = "123"; // found in the req.body object
-//const hashedPassword = bcrypt.hashSync(password, 10);
+
 
 
 /////////////////////////////////////////////////////////////
@@ -24,86 +23,25 @@ app.use(express.urlencoded({ extended: true }));
 app.use(morgan("dev"));
 app.use(cookieSession({
   name: 'session',
-  keys: ["123"],/* secret keys */
+  keys: ["123"],
     
   // Cookie Options
   maxAge: 24 * 60 * 60 * 1000 // 24 hours
 }));
-//app.use(cookieParser())
 
 
 /////////////////////////////////////////////////////////////
 //                 MAIN OBJECTS SECTION                    //
 /////////////////////////////////////////////////////////////
 
-// USERS OBJECT
-const users = {
-  abc: {
-    id: "abc",
-    email: "a@a.com",
-    password: "123",
-  },
-  def: {
-    id: "def",
-    email: "b@b.com",
-    password: "456",
-  },
-};
-
-//////////////////////////////////////////
-
-// URLDATABSE OBJECT
-const urlDatabase = {
-  b6UTxQ: {
-    longURL: "https://www.tsn.ca",
-    userID: "aJ48lW",
-  },
-  i3BoGr: {
-    longURL: "https://www.google.ca",
-    userID: "aJ48lW",
-  },
-};
-
-/////////////////////////////////////////////////////////////
-//                 GLOBAL FUNCTIONS SECTION                //
-/////////////////////////////////////////////////////////////
-
-// RANDOM STRING ID GENERATOR FUNCTION
-const generateRandomString = function(length = 6) {
-  let randomStr = [];
-  const char = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-  for (let i = 0; i < length; i++) {
-    let charIndex = Math.floor(Math.random() * char.length);
-    randomStr.push(char.charAt(charIndex));
-
-  }
-
-  randomStr = randomStr.join("");
-  return randomStr;
-};
-
-//////////////////////////////////////////////////////////////////
-
-// FILTERING URLDATABSE BASE ON SPECIFIC USER ID & URLS CONNECTED WITH SAID USER
-const urlsForUser = function(id, urls) {
-  let usersUrls = {};
-  for (let userUrlId in urls) {
-    if (id === urlDatabase[userUrlId].userID) {
-      usersUrls[userUrlId] = urlDatabase[userUrlId];
-    }
-  }
-  return usersUrls;
-};
-
-
 /////////////////////////////////////////////////////////////
 //                 "/"  GET                                //
 /////////////////////////////////////////////////////////////
 
-// MAIN PAIGE THAT REDIRECTS TO LOGIN
+// MAIN PIGE THAT REDIRECTS TO LOGIN
 app.get("/", (req, res) => {
 
-  res.redirect("/login");
+  res.redirect("/urls");
 });
 
 
@@ -154,7 +92,7 @@ app.post("/register", (req, res) => {
   // update users object
   users[id] = newUser;
 
-  res.redirect("/login");
+  res.redirect("/urls");
 
 });
 
@@ -182,7 +120,7 @@ app.post("/login", (req, res) => {
   // if email and/or password not provided
   
   if (!email || !password) {
-    return res.status(403).send("please provide an email and password");
+    return res.status(400).send("please provide an email and password");
   }
   
   // if email and password is correct it stores encrypted cookie
@@ -193,7 +131,7 @@ app.post("/login", (req, res) => {
     res.redirect("/urls");
   } else {
     // otherwise if conditional is false it shows error message
-    return res.status(403).send("email and/or password incorrect");
+    return res.status(400).send("email and/or password incorrect");
   }
 });
 
@@ -240,7 +178,7 @@ app.post("/urls", (req, res) => {
 /////////////////////////////////////////////////////////////
 
 app.post("/logout", (req, res) => {
-  req.session.userid = null;
+  delete req.session.userid;
   console.log("users: ", users);
   res.redirect("/login");
 });
@@ -270,7 +208,7 @@ app.get("/urls/:id", (req, res) => {
 
   // if not logged in error message
   if (!user) {
-    return res.status(404).send("must be logged in to access url");
+    return res.status(403).send("must be logged in to access url");
 
   }
   // if cannot find shorturl in urlDatabase error message
@@ -279,7 +217,7 @@ app.get("/urls/:id", (req, res) => {
   }
   // if userID of specfic shortURL doesnt match cookie of user logged in, error message
   if (urlDatabase[req.params.id].userID !== user.id) {
-    return res.status(404).send("incorrect user accessing url");
+    return res.status(403).send("incorrect user accessing url");
   }
   const templateVars = { user, id: req.params.id, longURL: urlDatabase[req.params.id].longURL };
   res.render("urls_show", templateVars);
@@ -288,12 +226,14 @@ app.get("/urls/:id", (req, res) => {
 /////////////////////////////////////////////////////////////////////////////////////////////////
 
 app.post("/urls/:id", (req, res) => {
-  
-  console.log(req.body); // Log the POST request body to the console
-  
+  const user = users[req.session.userid];
+
+  if (!user) {
+    res.status(400).send("must login first!");
+  }
   let longUrl = req.body.longURL;
-  // updates new longUrl typed in and stores/updates same shortURl
   urlDatabase[req.params.id].longURL = longUrl;
+  
   res.redirect(`/urls`);
 });
 
@@ -306,12 +246,12 @@ app.get("/urls/:id/delete", (req, res) => {
 
   // if not logged in cannot use /delete, error message
   if (!user) {
-    return res.status(404).send("must be logged in to access delete option");
+    return res.status(403).send("must be logged in to access delete option");
   }
   
   // if not shortUrl userID doesn't match user signed in, error message
   if (urlDatabase[req.params.id].userID !== user.id) {
-    return res.status(404).send("incorrect user accessing url");
+    return res.status(400).send("incorrect user accessing url");
   }
   console.log(req.body);
   delete urlDatabase[req.params.id];
@@ -324,11 +264,11 @@ app.post("/urls/:id/delete", (req, res) => {
   const user = users[req.session.userid];
 
   if (!user) {
-    return res.status(404).send("must be logged in to access delete option");
+    return res.status(400).send("must be logged in to access delete option");
   }
   
   if (urlDatabase[req.params.id].userID !== user.id) {
-    return res.status(404).send("incorrect user accessing url");
+    return res.status(403).send("incorrect user accessing url");
   }
   console.log(req.body); // Log the POST request body to the console
 
@@ -343,28 +283,17 @@ app.post("/urls/:id/delete", (req, res) => {
 /////////////////////////////////////////////////////////////
 
 app.get("/u/:id", (req, res) => {
+  
+  if (!urlDatabase[req.params.id]) {
+    return res.status(404).send("url doesn't exist");
+  } 
   const longURL = urlDatabase[req.params.id].longURL;
+   if (!longURL) {
+    return res.status(404).send("url doesn't exist");
+  } 
   res.redirect(longURL); // redirects shortUrl link to actual longUrl website
 
 });
-
-//////////////////////////////////////////////////////////////
-// app.get("/hello", (req, res) => {
-//   res.send("<html><body>Hello <b>World</b></body></html>\n");
-// });
-
-// app.get("/set", (req, res) => {
-//   const a = 1;
-//   res.send(`a = ${a}`);
-//  });
-
-//  app.get("/fetch", (req, res) => {
-//   res.send(`a = ${a}`);
-//  });
-
-// app.get("/urls.json", (req, res) => {
-//   res.json(urlDatabase);
-// });
 
 /////////////////////////////////////////////////////////////
 //                 APP.LISTEN                              //
