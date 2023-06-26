@@ -31,10 +31,6 @@ app.use(cookieSession({
 
 
 /////////////////////////////////////////////////////////////
-//                 MAIN OBJECTS SECTION                    //
-/////////////////////////////////////////////////////////////
-
-/////////////////////////////////////////////////////////////
 //                 "/"  GET                                //
 /////////////////////////////////////////////////////////////
 
@@ -286,11 +282,11 @@ app.get("/u/:id", (req, res) => {
   
   if (!urlDatabase[req.params.id]) {
     return res.status(404).send("url doesn't exist");
-  } 
+  }
   const longURL = urlDatabase[req.params.id].longURL;
-   if (!longURL) {
+  if (!longURL) {
     return res.status(404).send("url doesn't exist");
-  } 
+  }
   res.redirect(longURL); // redirects shortUrl link to actual longUrl website
 
 });
